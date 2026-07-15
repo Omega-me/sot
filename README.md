@@ -8,7 +8,7 @@
 
 Coding agents invent patterns. Ask one to add a feature and it will happily write a second HTTP client, a third error-handling convention, or a data-access layer that ignores the one you already have. Rules files help, but they drift from the code they describe.
 
-**SOT-driven development** flips this: the codebase itself is the memory. Canonical patterns are marked with `@source-of-truth` comment tags next to the *real implementation*, and every injected agent follows a strict lookup chain before writing code:
+**SOT-driven development** flips this: the codebase itself is the memory. Canonical patterns are marked with `@source-of-truth` comment tags next to the _real implementation_, and every injected agent follows a strict lookup chain before writing code:
 
 1. **Tags** — search `@source-of-truth` tags and copy the matched pattern.
 2. **Skills** — if no tag covers it, follow the matching injected skill.
@@ -21,7 +21,7 @@ Because the pattern lives beside working code, it can't go stale the way a wiki 
 Requires Node ≥ 20.6. Not on npm yet — install from source:
 
 ```sh
-git clone <this-repo> && cd sot
+git clone [https://github.com/Omega-me/sot.git](https://github.com/Omega-me/sot.git) && cd sot
 pnpm install
 pnpm build
 pnpm link --global
@@ -44,13 +44,13 @@ Prefer a dependency-free binary? `pnpm exe` builds a standalone `build/sot.exe` 
 
 ## What gets injected
 
-| Asset | What it is | Lands in (per `-H` harness) |
-| --- | --- | --- |
-| **agents** | `sot-build` (implementation) and `sot-review` (audit + fix) subagents | `.claude/agents/*.md` · `.codex/agents/*.toml` · `.github/agents/*.agent.md` · `.cursor/agents/*.md` |
-| **skills** | Six step-by-step playbooks (see below) | `.claude/skills/` · `.codex/skills/` · `.github/skills/` · `.cursor/skills/` — cross-harness `<name>/SKILL.md` format, copied as-is |
-| **rules** | The SOT protocol block | Marker-managed section in `CLAUDE.md` (Claude Code) · `AGENTS.md` (Codex, Cursor) · `.github/copilot-instructions.md` (Copilot) |
-| **categories** | Registry of valid `@source-of-truth` tag categories | `sot-categories.md` at the project root (harness-neutral) |
-| **guardrails** | Registry of the project's own guardrails | `sot-guardrails.md` at the project root (harness-neutral) |
+| Asset          | What it is                                                            | Lands in (per `-H` harness)                                                                                                         |
+| -------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| **agents**     | `sot-build` (implementation) and `sot-review` (audit + fix) subagents | `.claude/agents/*.md` · `.codex/agents/*.toml` · `.github/agents/*.agent.md` · `.cursor/agents/*.md`                                |
+| **skills**     | Six step-by-step playbooks (see below)                                | `.claude/skills/` · `.codex/skills/` · `.github/skills/` · `.cursor/skills/` — cross-harness `<name>/SKILL.md` format, copied as-is |
+| **rules**      | The SOT protocol block                                                | Marker-managed section in `CLAUDE.md` (Claude Code) · `AGENTS.md` (Codex, Cursor) · `.github/copilot-instructions.md` (Copilot)     |
+| **categories** | Registry of valid `@source-of-truth` tag categories                   | `sot-categories.md` at the project root (harness-neutral)                                                                           |
+| **guardrails** | Registry of the project's own guardrails                              | `sot-guardrails.md` at the project root (harness-neutral)                                                                           |
 
 Agents are converted per harness (markdown for Claude Code and Cursor, TOML for Codex, `*.agent.md` for Copilot). Skills and the two registries are identical across harnesses, so injecting for several harnesses shares one source of truth.
 
@@ -68,7 +68,7 @@ Agents are converted per harness (markdown for Claude Code and Cursor, TOML for 
 `inject` is idempotent, with a deliberate write strategy per asset kind:
 
 - **agents / skills** — copied; existing files are skipped unless `--force`.
-- **rules** — written between `<!-- sot-protocol:begin/end -->` markers in the rules file: created if absent, replaced in place if present, and everything *outside* the markers is never touched. Your existing `CLAUDE.md` / `AGENTS.md` content is safe, and re-injecting picks up protocol updates.
+- **rules** — written between `<!-- sot-protocol:begin/end -->` markers in the rules file: created if absent, replaced in place if present, and everything _outside_ the markers is never touched. Your existing `CLAUDE.md` / `AGENTS.md` content is safe, and re-injecting picks up protocol updates.
 - **categories / guardrails** — created once, then owned by your project. Never overwritten, **not even with `--force`**. This is the point: `sot-guardrails.md` is where you record project-specific guardrails, and `sot-categories.md` is where you register new tag categories — both survive every re-inject, unlike the protocol block.
 
 ## Extending
