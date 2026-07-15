@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "sot-gui",
+      "runtimeExecutable": "pnpm",
+      "runtimeArgs": ["dev", "gui", "--no-open", "--port", "4455"],
+      "port": 4455
+    }
+  ]
+}

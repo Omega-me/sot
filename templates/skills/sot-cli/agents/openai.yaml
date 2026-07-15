@@ -1,0 +1,4 @@
+interface:
+  display_name: "SOT CLI"
+  short_description: "Install and drive the sot CLI — inject, remove, list"
+  default_prompt: "Use $sot-cli to install the sot CLI and inject, remove, or list its assets in this project."

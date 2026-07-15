@@ -18,6 +18,7 @@ import {
 } from "./convert.js";
 import {
   copyDir,
+  copyFileWithPolicy,
   emptyResult,
   writeFileWithPolicy,
   type InjectResult,
@@ -27,25 +28,35 @@ import {
  * Inject templates/agents/*.md into the harness's agents directory:
  * claude and cursor get the markdown as-is, codex gets one TOML definition
  * per agent, copilot gets `<name>.agent.md` profiles.
+ * When `only` is given, just the agents named in it are injected.
  */
 export function injectAgents(
   target: string,
   force: boolean,
   harness: Harness = DEFAULT_HARNESS,
+  only?: string[],
 ): InjectResult {
   const result = emptyResult();
   const srcDir = path.join(TEMPLATES_DIR, TEMPLATE_PATHS.agents);
   const destDir = path.join(target, HARNESS_TARGETS[harness].agents);
 
-  if (harness === "claude" || harness === "cursor") {
-    copyDir(srcDir, destDir, force, result, target);
-    return result;
-  }
-
   for (const entry of fs.readdirSync(srcDir)) {
     if (!entry.endsWith(".md")) continue;
-    const doc = parseAgentMarkdown(fs.readFileSync(path.join(srcDir, entry), "utf8"));
     const base = entry.replace(/\.md$/, "");
+    if (only && !only.includes(base)) continue;
+
+    if (harness === "claude" || harness === "cursor") {
+      copyFileWithPolicy(
+        path.join(srcDir, entry),
+        path.join(destDir, entry),
+        force,
+        result,
+        target,
+      );
+      continue;
+    }
+
+    const doc = parseAgentMarkdown(fs.readFileSync(path.join(srcDir, entry), "utf8"));
     const [destName, content] =
       harness === "codex"
         ? [`${base}.toml`, toCodexAgentToml(doc)]
@@ -58,20 +69,28 @@ export function injectAgents(
 /**
  * Copy templates/skills/<name>/ trees into the harness's skills directory.
  * SKILL.md is a cross-harness format, so no conversion is needed.
+ * When `only` is given, just the skills named in it are injected.
  */
 export function injectSkills(
   target: string,
   force: boolean,
   harness: Harness = DEFAULT_HARNESS,
+  only?: string[],
 ): InjectResult {
   const result = emptyResult();
-  copyDir(
-    path.join(TEMPLATES_DIR, TEMPLATE_PATHS.skills),
-    path.join(target, HARNESS_TARGETS[harness].skills),
-    force,
-    result,
-    target,
-  );
+  const srcRoot = path.join(TEMPLATES_DIR, TEMPLATE_PATHS.skills);
+  const destRoot = path.join(target, HARNESS_TARGETS[harness].skills);
+  for (const entry of fs.readdirSync(srcRoot, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue;
+    if (only && !only.includes(entry.name)) continue;
+    copyDir(
+      path.join(srcRoot, entry.name),
+      path.join(destRoot, entry.name),
+      force,
+      result,
+      target,
+    );
+  }
   return result;
 }
 
@@ -134,8 +153,9 @@ export function injectGuardrails(
  * Find `marker` where it occupies an entire line — the only way the injector
  * ever writes it. Mentions embedded in prose or code spans must never match,
  * or replacing the "block" between them would destroy the surrounding text.
+ * Exported for the remover, which strips the same marker-managed block.
  */
-function findMarkerIndex(content: string, marker: string, fromIndex = 0): number {
+export function findMarkerIndex(content: string, marker: string, fromIndex = 0): number {
   let idx = content.indexOf(marker, fromIndex);
   while (idx !== -1) {
     const lineStart = content.lastIndexOf("\n", idx - 1) + 1;

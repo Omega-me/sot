@@ -3,7 +3,8 @@
   "bin": "build/bundle/sot.cjs",
   "pkg": {
     "assets": [
-      "templates/**/*"
+      "templates/**/*",
+      "gui/**/*"
     ],
     "targets": [
       "node22-win-x64"

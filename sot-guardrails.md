@@ -47,7 +47,9 @@ the list grows.
   marker counts only when it stands alone on its own line.
   Why: a marker mentioned in prose once corrupted this repo's own
   `CLAUDE.md` on re-inject.
-- `commander` is the only runtime dependency — do not add another.
+- `commander` and `picocolors` are the only runtime dependencies — do not
+  add another. All terminal styling goes through `src/lib/ui.ts`; never
+  import `picocolors` elsewhere.
 - A new asset kind must be wired end-to-end: `ASSET_KINDS`/`HARNESS_TARGETS`
   in `src/lib/constants.ts`, an injector in `src/lib/inject.ts` returning
   `InjectResult`, a runner entry in `src/commands/inject.ts`, a CLI flag in

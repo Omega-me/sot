@@ -19,6 +19,27 @@ export function mergeResults(...results: InjectResult[]): InjectResult {
   };
 }
 
+/** Per-file report of a removal run, mirroring InjectResult. */
+export interface RemoveResult {
+  removed: string[];
+  /** Existed but intentionally left in place (user-owned, not explicitly selected). */
+  skipped: string[];
+  /** Nothing to remove — the injected file/block was not found. */
+  missing: string[];
+}
+
+export function emptyRemoveResult(): RemoveResult {
+  return { removed: [], skipped: [], missing: [] };
+}
+
+export function mergeRemoveResults(...results: RemoveResult[]): RemoveResult {
+  return {
+    removed: results.flatMap((r) => r.removed),
+    skipped: results.flatMap((r) => r.skipped),
+    missing: results.flatMap((r) => r.missing),
+  };
+}
+
 /**
  * Write `content` to `destPath` with the same skip/force policy as copyDir:
  * existing files are skipped unless `force` is set.
@@ -46,6 +67,32 @@ export function writeFileWithPolicy(
 }
 
 /**
+ * Copy a single file with the same skip/force policy as copyDir:
+ * existing files are skipped unless `force` is set.
+ */
+export function copyFileWithPolicy(
+  srcPath: string,
+  destPath: string,
+  force: boolean,
+  result: InjectResult,
+  relativeTo: string,
+): void {
+  fs.mkdirSync(path.dirname(destPath), { recursive: true });
+  const label = path.relative(relativeTo, destPath);
+  if (fs.existsSync(destPath)) {
+    if (!force) {
+      result.skipped.push(label);
+      return;
+    }
+    fs.copyFileSync(srcPath, destPath);
+    result.updated.push(label);
+  } else {
+    fs.copyFileSync(srcPath, destPath);
+    result.created.push(label);
+  }
+}
+
+/**
  * Recursively copy every file under `srcDir` into `destDir`, preserving
  * structure. Existing files are skipped unless `force` is set.
  */
@@ -64,17 +111,6 @@ export function copyDir(
       copyDir(srcPath, destPath, force, result, relativeTo);
       continue;
     }
-    const label = path.relative(relativeTo, destPath);
-    if (fs.existsSync(destPath)) {
-      if (!force) {
-        result.skipped.push(label);
-        continue;
-      }
-      fs.copyFileSync(srcPath, destPath);
-      result.updated.push(label);
-    } else {
-      fs.copyFileSync(srcPath, destPath);
-      result.created.push(label);
-    }
+    copyFileWithPolicy(srcPath, destPath, force, result, relativeTo);
   }
 }

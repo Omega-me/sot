@@ -13,3 +13,6 @@ what the tagged pattern is canonical for.
 
 - `injection-strategy` — canonical implementations of the asset-injection strategies (recursive copy, marker-managed block, create-once).
 - `harness-registry` — canonical registry of supported harnesses, asset kinds, and per-harness template/target paths.
+- `cli-output` — canonical terminal-output styling: colors, status glyphs, and line formatters shared by every command.
+- `gui-server` — canonical local GUI HTTP server: loopback-only API that serves the static page, browses directories, and drives the real CLI via child processes.
+- `removal-strategy` — canonical implementations of the asset-removal strategies mirroring injection: template-matched delete, marker-block strip, explicit-only delete of the user-owned registries.

@@ -1,0 +1,606 @@
+<!doctype html>
+<!-- Static GUI page for `sot gui`. View layer only: every operation goes through
+     the local API (/api/assets, /api/browse, /api/pick-folder, /api/open-folder,
+     /api/status, /api/inject, /api/remove), which in turn drives the real CLI.
+     No business logic lives here. -->
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>sot gui</title>
+<style>
+  :root {
+    --bg: #10141a;
+    --panel: #171d26;
+    --border: #2a3342;
+    --text: #d7dee8;
+    --dim: #7d8a9c;
+    --accent: #4cc2ff;
+    --green: #58d68d;
+    --yellow: #f4d03f;
+    --red: #ec7063;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font: 14px/1.5 ui-monospace, "Cascadia Code", Consolas, monospace;
+    background: var(--bg);
+    color: var(--text);
+  }
+  header {
+    padding: 14px 22px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+  header h1 { margin: 0; font-size: 18px; color: var(--accent); }
+  main {
+    display: grid;
+    grid-template-columns: minmax(380px, 560px) 1fr;
+    gap: 18px;
+    padding: 18px 22px;
+    align-items: start;
+  }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 14px 16px;
+  }
+  h2 { margin: 0 0 10px; font-size: 13px; text-transform: uppercase; letter-spacing: 1px; color: var(--accent); }
+  .row { display: flex; gap: 8px; margin-bottom: 8px; flex-wrap: wrap; align-items: center; }
+  input[type="text"] {
+    flex: 1 1 200px;
+    min-width: 0;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 6px 9px;
+    font: inherit;
+  }
+  button {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    padding: 6px 12px;
+    font: inherit;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #06222f; font-weight: 700; }
+  button.danger { border-color: var(--red); color: var(--red); font-weight: 700; }
+  button.danger:hover { background: var(--red); color: #2a0b08; }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+  #target-error { color: var(--red); font-size: 13px; margin: 6px 0; word-break: break-all; }
+  #selected-name { color: var(--accent); font-weight: 700; margin-top: 6px; }
+  #selected-path { color: var(--dim); font-size: 12px; word-break: break-all; margin-bottom: 6px; }
+  #tree { max-height: 320px; overflow: auto; border: 1px solid var(--border); border-radius: 6px; }
+  #tree div { padding: 4px 10px; border-bottom: 1px solid var(--border); }
+  #tree div:last-child { border-bottom: none; }
+  .muted { color: var(--dim); }
+  .kind { border-top: 1px solid var(--border); padding: 8px 0; }
+  .kind:first-of-type { border-top: none; }
+  .kind-head { display: flex; align-items: center; gap: 8px; }
+  .kind-head .state { margin-left: auto; font-size: 12px; }
+  .items { margin: 6px 0 0 26px; display: flex; flex-direction: column; gap: 3px; }
+  .items label { display: flex; align-items: center; gap: 8px; }
+  .items .state { margin-left: auto; font-size: 12px; }
+  .ok { color: var(--green); }
+  .warn { color: var(--yellow); }
+  .off { color: var(--dim); }
+  .err { color: var(--red); }
+  select {
+    background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); padding: 6px 9px; font: inherit;
+  }
+  #results { margin-top: 10px; max-height: 260px; overflow: auto; font-size: 13px; }
+  #results div { padding: 1px 0; }
+  #summary { margin-top: 8px; font-weight: 700; }
+  .controls { display: flex; gap: 10px; align-items: center; margin-top: 12px; flex-wrap: wrap; }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; gap: 14px; padding: 14px; }
+    header { padding: 12px 14px; }
+    #tree { max-height: 200px; }
+  }
+  @media (max-width: 480px) {
+    main { padding: 10px; gap: 10px; }
+    section { padding: 12px; }
+    .row button { flex: 1 1 auto; }
+    .items { margin-left: 14px; }
+    .controls button { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>sot gui</h1>
+</header>
+<main>
+  <section>
+    <h2>Target folder</h2>
+    <div class="row">
+      <input id="target" type="text" placeholder="Paste an absolute path…" />
+      <button id="clear-target" title="Clear the target path" hidden>×</button>
+      <button id="pick-native" title="Open the native OS folder picker">…</button>
+      <button id="open-folder" title="Open the target folder in the OS file manager" disabled>Open</button>
+    </div>
+    <div id="target-error" hidden></div>
+    <div id="selected" hidden>
+      <div id="selected-name"></div>
+      <div id="selected-path"></div>
+      <div id="tree"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Assets</h2>
+    <div class="row">
+      <label class="muted" for="harness">harness</label>
+      <select id="harness"></select>
+      <span id="target-state" class="muted"></span>
+    </div>
+    <div id="kinds"></div>
+    <div class="controls">
+      <label><input type="checkbox" id="force" /> force re-inject (--force)</label>
+      <button id="inject" class="primary" disabled>Inject</button>
+      <button id="remove" class="danger" disabled title="Delete the selected injected assets">Remove</button>
+      <span id="busy" class="muted"></span>
+    </div>
+    <div id="results"></div>
+    <div id="summary"></div>
+  </section>
+</main>
+<script>
+"use strict";
+
+const API = {
+  assets: "/api/assets",
+  browse: "/api/browse",
+  pickFolder: "/api/pick-folder",
+  openFolder: "/api/open-folder",
+  status: "/api/status",
+  inject: "/api/inject",
+  remove: "/api/remove",
+};
+const SIMPLE_KINDS = ["rules", "categories", "guardrails"];
+// Wait this long after the last keystroke before validating a typed path.
+const PATH_DEBOUNCE_MS = 400;
+// How long the summary line stays highlighted after an error.
+const ERROR_FLASH_MS = 4000;
+
+const el = (id) => document.getElementById(id);
+const state = {
+  assets: null,      // /api/assets payload
+  target: "",        // validated target folder ("" = none)
+  status: null,      // /api/status payload for the target
+};
+
+async function getJson(url) {
+  const res = await fetch(url);
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+async function postJson(url, payload) {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const body = await res.json();
+  if (!res.ok) throw new Error(body.error || res.statusText);
+  return body;
+}
+
+// --- target validation + read-only tree ---------------------------------------
+// Any path landing in the input (picker, paste, typing) is validated against
+// GET /api/browse. A valid folder becomes the active target immediately; an
+// invalid one clears the target and shows an inline error.
+
+let validateTimer = 0;
+let validateSeq = 0; // drops stale responses when the input changes mid-flight
+
+function scheduleValidate() {
+  clearTimeout(validateTimer);
+  validateTimer = setTimeout(
+    () => { validateTarget(el("target").value.trim()).catch(showError); },
+    PATH_DEBOUNCE_MS,
+  );
+}
+
+async function validateTarget(candidate) {
+  clearTimeout(validateTimer);
+  const seq = ++validateSeq;
+  if (!candidate) {
+    clearTarget("");
+    return;
+  }
+  const res = await fetch(`${API.browse}?path=${encodeURIComponent(candidate)}`);
+  const body = await res.json();
+  if (seq !== validateSeq) return; // a newer validation superseded this one
+  if (!res.ok) {
+    clearTarget(
+      res.status === 404
+        ? `Folder does not exist: ${candidate}`
+        : body.error || res.statusText,
+    );
+    return;
+  }
+  state.target = body.path;
+  renderSelected(body);
+  refreshStatus().catch(showError);
+}
+
+// The clear button mirrors the input: visible only while it has text.
+function syncClearButton() {
+  el("clear-target").hidden = el("target").value === "";
+}
+
+function clearTarget(message) {
+  state.target = "";
+  state.status = null;
+  el("selected").hidden = true;
+  el("target-state").textContent = "";
+  el("inject").disabled = true;
+  el("remove").disabled = true;
+  el("open-folder").disabled = true;
+  const error = el("target-error");
+  error.textContent = message;
+  error.hidden = !message;
+  renderKinds();
+}
+
+function renderSelected(data) {
+  el("target-error").hidden = true;
+  el("selected").hidden = false;
+  el("open-folder").disabled = false;
+  el("selected-name").textContent = `Selected: ${basename(data.path)}`;
+  el("selected-path").textContent = data.path;
+  const tree = el("tree");
+  tree.replaceChildren();
+  if (data.entries.length === 0) {
+    const empty = document.createElement("div");
+    empty.className = "muted";
+    empty.textContent = "(no subfolders)";
+    tree.appendChild(empty);
+    return;
+  }
+  for (const entry of data.entries) {
+    const row = document.createElement("div");
+    row.textContent = `▸ ${entry.name}`;
+    tree.appendChild(row);
+  }
+}
+
+function basename(fullPath) {
+  const parts = fullPath.split(/[\\/]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : fullPath;
+}
+
+// --- assets + status ----------------------------------------------------------
+
+async function loadAssets() {
+  state.assets = await getJson(API.assets);
+  const harnessSelect = el("harness");
+  harnessSelect.replaceChildren();
+  for (const harness of state.assets.harnesses) {
+    const option = document.createElement("option");
+    option.value = harness;
+    option.textContent = harness;
+    harnessSelect.appendChild(option);
+  }
+  renderKinds();
+}
+
+async function refreshStatus() {
+  if (!state.target) return;
+  const harness = el("harness").value;
+  state.status = await getJson(
+    `${API.status}?target=${encodeURIComponent(state.target)}&harness=${encodeURIComponent(harness)}`,
+  );
+  el("target-state").textContent = state.status.exists
+    ? ""
+    : "folder does not exist";
+  el("target-state").className = state.status.exists ? "muted" : "err";
+  renderKinds();
+  el("inject").disabled = !state.status.exists;
+  el("remove").disabled = !state.status.exists;
+}
+
+function stateSpan(installed) {
+  const span = document.createElement("span");
+  span.className = "state " + (installed ? "ok" : "off");
+  span.textContent = installed ? "injected" : "not injected";
+  return span;
+}
+
+function itemRow(kind, name, installed) {
+  const label = document.createElement("label");
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = true;
+  box.dataset.kind = kind;
+  box.dataset.name = name;
+  const text = document.createElement("span");
+  text.textContent = name;
+  label.append(box, text, stateSpan(installed));
+  return label;
+}
+
+function kindBlock(kind, note, installed, items) {
+  const block = document.createElement("div");
+  block.className = "kind";
+  const head = document.createElement("div");
+  head.className = "kind-head";
+  const box = document.createElement("input");
+  box.type = "checkbox";
+  box.checked = true;
+  box.id = `kind-${kind}`;
+  box.dataset.kindToggle = kind;
+  const title = document.createElement("label");
+  title.htmlFor = box.id;
+  title.textContent = kind;
+  const info = document.createElement("span");
+  info.className = "muted";
+  info.textContent = note;
+  head.append(box, title, info);
+  if (installed !== null) head.appendChild(stateSpan(installed));
+  block.appendChild(head);
+  if (items) {
+    const list = document.createElement("div");
+    list.className = "items";
+    for (const item of items) list.appendChild(item);
+    block.appendChild(list);
+    box.onchange = () => {
+      for (const child of list.querySelectorAll("input")) child.checked = box.checked;
+    };
+  }
+  return block;
+}
+
+function renderKinds() {
+  if (!state.assets) return;
+  const status = state.status && state.status.exists ? state.status : null;
+  const container = el("kinds");
+  const previous = snapshotSelection();
+  container.replaceChildren();
+
+  const agentItems = state.assets.agents.map((name) =>
+    itemRow("agents", name, Boolean(status && status.agents.installed.includes(name))),
+  );
+  container.appendChild(kindBlock("agents", "subagents", null, agentItems));
+
+  const skillItems = state.assets.skills.map((name) =>
+    itemRow("skills", name, Boolean(status && status.skills.installed.includes(name))),
+  );
+  container.appendChild(kindBlock("skills", "skill playbooks", null, skillItems));
+
+  const notes = {
+    rules: "marker-managed protocol block",
+    categories: "created once, user-owned",
+    guardrails: "created once, user-owned",
+  };
+  for (const kind of SIMPLE_KINDS) {
+    container.appendChild(
+      kindBlock(kind, notes[kind], status ? status[kind].present : null, null),
+    );
+  }
+  if (previous) restoreSelection(previous);
+}
+
+// --- selection → inject request ----------------------------------------------
+
+function collectSelection() {
+  const container = el("kinds");
+  if (!container.firstChild) return { kinds: [], only: undefined };
+  const checkedItems = [...container.querySelectorAll("input[data-kind]")].filter(
+    (box) => box.checked,
+  );
+  const agentNames = checkedItems
+    .filter((box) => box.dataset.kind === "agents")
+    .map((box) => box.dataset.name);
+  const skillNames = checkedItems
+    .filter((box) => box.dataset.kind === "skills")
+    .map((box) => box.dataset.name);
+
+  const kinds = [];
+  if (agentNames.length > 0) kinds.push("agents");
+  if (skillNames.length > 0) kinds.push("skills");
+  for (const kind of SIMPLE_KINDS) {
+    const box = el(`kind-${kind}`);
+    if (box && box.checked) kinds.push(kind);
+  }
+
+  const allAgents = agentNames.length === state.assets.agents.length;
+  const allSkills = skillNames.length === state.assets.skills.length;
+  const only =
+    (kinds.includes("agents") && !allAgents) || (kinds.includes("skills") && !allSkills)
+      ? [...agentNames, ...skillNames]
+      : undefined;
+  return { kinds, only };
+}
+
+/** Raw checkbox state, keyed by kind:name, so re-renders keep the user's picks. */
+function snapshotSelection() {
+  const container = el("kinds");
+  if (!container.firstChild) return null;
+  const items = {};
+  for (const box of container.querySelectorAll("input[data-kind]")) {
+    items[`${box.dataset.kind}:${box.dataset.name}`] = box.checked;
+  }
+  const simple = {};
+  for (const kind of SIMPLE_KINDS) {
+    const box = el(`kind-${kind}`);
+    if (box) simple[kind] = box.checked;
+  }
+  return { items, simple };
+}
+
+function restoreSelection(selection) {
+  for (const box of el("kinds").querySelectorAll("input[data-kind]")) {
+    const key = `${box.dataset.kind}:${box.dataset.name}`;
+    if (key in selection.items) box.checked = selection.items[key];
+  }
+  for (const kind of SIMPLE_KINDS) {
+    const box = el(`kind-${kind}`);
+    if (box && kind in selection.simple) box.checked = selection.simple[kind];
+  }
+}
+
+async function runAction(command) {
+  const selection = collectSelection();
+  if (selection.kinds.length === 0) {
+    showError(new Error("Nothing selected"));
+    return;
+  }
+  if (command === "remove" && !confirmRemove(selection)) return;
+  el("inject").disabled = true;
+  el("remove").disabled = true;
+  el("busy").textContent = `running sot ${command}…`;
+  el("results").replaceChildren();
+  el("summary").textContent = "";
+  try {
+    const payload = {
+      target: state.target,
+      kinds: selection.kinds,
+      harnesses: [el("harness").value],
+    };
+    if (command === "inject") payload.force = el("force").checked;
+    if (selection.only) payload.only = selection.only;
+    const data = await postJson(API[command], payload);
+    renderResults(data.result);
+    await refreshStatus();
+  } catch (error) {
+    showError(error);
+  } finally {
+    el("busy").textContent = "";
+    el("inject").disabled = false;
+    el("remove").disabled = false;
+  }
+}
+
+// Deleting files is irreversible — always confirm, and call out the
+// user-owned registries explicitly when they are part of the selection.
+function confirmRemove(selection) {
+  const owned = selection.kinds.filter(
+    (kind) => kind === "categories" || kind === "guardrails",
+  );
+  let message =
+    `Delete the selected injected assets from:\n${state.target}\n\n` +
+    `Kinds: ${selection.kinds.join(", ")}`;
+  if (selection.only) message += `\nOnly: ${selection.only.join(", ")}`;
+  if (owned.length > 0) {
+    message +=
+      `\n\nWARNING: ${owned.join(" and ")} (sot-categories.md / sot-guardrails.md) ` +
+      "are user-owned files that may contain your own edits. " +
+      "They will be permanently deleted.";
+  }
+  return confirm(message);
+}
+
+function renderResults(result) {
+  const container = el("results");
+  const line = (cls, glyph, text, note) => {
+    const row = document.createElement("div");
+    row.className = cls;
+    row.textContent = `${glyph} ${text}${note ? ` ${note}` : ""}`;
+    container.appendChild(row);
+  };
+  const parts = [];
+  if (result.created) {
+    for (const item of result.created) line("ok", "✓ created", item);
+    for (const item of result.updated) line("warn", "↻ updated", item);
+    for (const item of result.skipped) line("off", "○ skipped", item, "(exists — use force)");
+    parts.push(
+      `${result.created.length} created`,
+      `${result.updated.length} updated`,
+      `${result.skipped.length} skipped`,
+    );
+  } else {
+    for (const item of result.removed) line("warn", "− removed", item);
+    for (const item of result.skipped) line("off", "○ skipped", item, "(user-owned — kept)");
+    for (const item of result.missing) line("off", "∅ missing", item, "(nothing to remove)");
+    parts.push(
+      `${result.removed.length} removed`,
+      `${result.skipped.length} skipped`,
+      `${result.missing.length} missing`,
+    );
+  }
+  el("summary").textContent = parts.join(" · ");
+}
+
+function showError(error) {
+  el("summary").textContent = String(error.message || error);
+  el("summary").className = "err";
+  setTimeout(() => { el("summary").className = ""; }, ERROR_FLASH_MS);
+}
+
+// --- wiring --------------------------------------------------------------------
+
+// Native OS folder picker; on failure (unsupported platform, no dialog tool)
+// the error is shown and the user can type or paste the path instead.
+el("pick-native").onclick = async () => {
+  const button = el("pick-native");
+  button.disabled = true;
+  try {
+    const data = await getJson(API.pickFolder);
+    if (data.path) {
+      el("target").value = data.path;
+      syncClearButton();
+      await validateTarget(data.path);
+    }
+  } catch (error) {
+    showError(error);
+  } finally {
+    button.disabled = false;
+  }
+};
+// Open the validated target in the OS file manager (server-side opener); on
+// failure the error is shown like the picker's.
+el("open-folder").onclick = async () => {
+  const button = el("open-folder");
+  button.disabled = true;
+  try {
+    await getJson(`${API.openFolder}?path=${encodeURIComponent(state.target)}`);
+  } catch (error) {
+    showError(error);
+  } finally {
+    button.disabled = !state.target;
+  }
+};
+// Typed/pasted paths auto-validate: debounced on keystrokes, immediate on
+// Enter and on change (blur); paste fires before the value updates, so it
+// goes through the same debounce.
+el("target").addEventListener("input", () => {
+  syncClearButton();
+  scheduleValidate();
+});
+el("target").addEventListener("paste", scheduleValidate);
+// Clear: empty the input and reset the target UI through the same validation
+// path as typed input (validateTarget("") → clearTarget("")), then refocus.
+el("clear-target").onclick = () => {
+  el("target").value = "";
+  syncClearButton();
+  validateTarget("").catch(showError);
+  el("target").focus();
+};
+el("target").addEventListener("change", () => {
+  validateTarget(el("target").value.trim()).catch(showError);
+});
+el("target").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") validateTarget(el("target").value.trim()).catch(showError);
+});
+el("harness").onchange = () => refreshStatus().catch(showError);
+el("inject").onclick = () => runAction("inject");
+el("remove").onclick = () => runAction("remove");
+
+loadAssets().catch(showError);
+</script>
+</body>
+</html>

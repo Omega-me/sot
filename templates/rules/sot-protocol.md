@@ -78,6 +78,8 @@ don't cover the pattern.
 - `code-duplication` — report duplicated code with exact locations and
   suggested fixes; never edits — the user applies fixes.
 - `caveman` — the terse communication style required for all output.
+- `sot-cli` — how to install and drive the `sot` CLI itself (inject, remove,
+  list, gui).
 
 ## Using the injected agents
 
