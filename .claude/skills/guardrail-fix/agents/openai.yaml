@@ -1,0 +1,4 @@
+interface:
+  display_name: "Guardrail Fix"
+  short_description: "Fix architecture guardrail violations, then re-verify"
+  default_prompt: "Use $guardrail-fix to find and fix architecture guardrail violations."

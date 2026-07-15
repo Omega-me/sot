@@ -1,0 +1,4 @@
+interface:
+  display_name: "SOT Navigator"
+  short_description: "Run the source-of-truth lookup chain before implementing"
+  default_prompt: "Use $sot-navigator to implement this task following the project's source-of-truth workflow."

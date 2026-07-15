@@ -1,0 +1,4 @@
+interface:
+  display_name: "Guardrail Audit"
+  short_description: "Audit the codebase against architecture guardrails"
+  default_prompt: "Use $guardrail-audit to audit the codebase for architecture guardrail violations."

@@ -1,0 +1,41 @@
+{
+  "name": "sot",
+  "version": "0.1.0",
+  "description": "Inject reusable coding-agent assets — subagents, skills, SOT-protocol rules, and registry files — into any project, for Claude Code, Codex, Copilot, and Cursor.",
+  "type": "module",
+  "license": "MIT",
+  "engines": {
+    "node": ">=20.6"
+  },
+  "bin": {
+    "sot": "./dist/index.js"
+  },
+  "files": [
+    "dist",
+    "templates"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "bundle": "esbuild src/index.ts --bundle --platform=node --format=cjs --outfile=build/bundle/sot.cjs --define:import.meta.url=__IMPORT_META_URL \"--banner:js=const __IMPORT_META_URL = require('node:url').pathToFileURL(__filename).href;\"",
+    "exe": "pnpm bundle && pkg build/bundle/sot.cjs --config pkg.json --targets node22-win-x64 --output build/sot.exe",
+    "dev": "tsx src/index.ts",
+    "test": "node --import tsx --test test/inject.test.ts",
+    "typecheck": "tsc --noEmit",
+    "usage": "pnpm dlx ccusage@latest claude"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  },
+  "dependencies": {
+    "commander": "^13.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "@yao-pkg/pkg": "^6.21.0",
+    "esbuild": "^0.28.1",
+    "tsx": "^4.19.0",
+    "typescript": "^5.7.0"
+  }
+}

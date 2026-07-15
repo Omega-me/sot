@@ -1,0 +1,4 @@
+interface:
+  display_name: "Caveman"
+  short_description: "Terse output style — cut filler, keep technical content exact"
+  default_prompt: "Use $caveman to answer tersely: drop filler, keep code and technical terms byte-exact."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "Code Duplication"
+  short_description: "Report duplicated code with exact locations and suggested fixes — no edits"
+  default_prompt: "Use $code-duplication to report duplicated code with exact file:line locations and suggested fixes. Do not change any files."

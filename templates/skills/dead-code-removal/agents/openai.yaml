@@ -1,0 +1,4 @@
+interface:
+  display_name: "Dead Code Removal"
+  short_description: "Find and delete dead code with verified evidence"
+  default_prompt: "Use $dead-code-removal to find and delete dead code in this repository."

@@ -1,0 +1,13 @@
+{
+  "name": "sot",
+  "bin": "build/bundle/sot.cjs",
+  "pkg": {
+    "assets": [
+      "templates/**/*"
+    ],
+    "targets": [
+      "node22-win-x64"
+    ],
+    "outputPath": "build"
+  }
+}
