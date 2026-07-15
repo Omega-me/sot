@@ -21,7 +21,7 @@ Because the pattern lives beside working code, it can't go stale the way a wiki 
 Requires Node ≥ 20.6. Not on npm yet — install from source:
 
 ```sh
-git clone [https://github.com/Omega-me/sot.git](https://github.com/Omega-me/sot.git) && cd sot
+git clone https://github.com/Omega-me/sot.git && cd sot
 pnpm install
 pnpm build
 pnpm link --global
